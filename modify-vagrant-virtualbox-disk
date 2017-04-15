@@ -1,0 +1,192 @@
+#!/usr/bin/python
+
+########################################################################
+#
+#  Run this script on the host machine, with the current directory set
+#  to that of the Vagrant-managed virtual machine.  The VM should be
+#  powered down already, or else ready for unattended power-down by
+#  this script.  This script will TRIM the guest's virtual disk, then
+#  compact the guest's virtual disk image as stored in the host.
+#
+#  This process requires temporary host storage space roughly as large
+#  as the virtual disk image as stored in the host.  (This will
+#  generally be much smaller than the virtual disk size as seen by the
+#  guest.)  We use $TMPDIR for this temporary space, or "/var/tmp" if
+#  $TMPDIR is unset.
+#
+#  This script may require installing a few extra Python packages:
+#
+#  % pip install --user humanfriendly
+#  % pip install --user pyvbox
+#  % pip install --user git+https://github.com/todddeluca/python-vagrant.git
+#
+########################################################################
+
+from __future__ import print_function
+
+import sys
+import virtualbox
+
+from argparse import ArgumentParser
+from contextlib import contextmanager
+from humanfriendly import parse_size
+from os import environ, getcwd
+from subprocess import check_call
+from tempfile import gettempdir
+from vagrant import Vagrant
+
+
+@contextmanager
+def task(description):
+    print('{}:'.format(description), end=' ')
+    sys.stdout.flush()
+    try:
+        yield
+    finally:
+        print('done')
+
+
+def wait_for(progress):
+    progress.wait_for_completion()
+    if progress.result_code != 0:
+        raise RuntimeError(progress.error_info.text)
+
+
+@contextmanager
+def session(machine):
+    session = machine.create_session(virtualbox.library.LockType.write)
+    try:
+        yield session.machine
+    finally:
+        session.unlock_machine()
+
+
+@contextmanager
+def temporary_storage(vbox):
+    tempDir = gettempdir() + '/'
+    storage = vbox.create_medium('VDI', tempDir, virtualbox.library.AccessMode.read_write, virtualbox.library.DeviceType.hard_disk)
+    try:
+        yield storage
+    finally:
+        with task('destroy temporary virtual disk image'):
+            wait_for(storage.delete_storage())
+
+
+def switch_disk(machine, medium, auto_discard):
+    with task('switch virtual disk image'):
+        controller, = machine.storage_controllers
+        attachment, = machine.medium_attachments
+        with session(machine) as mutable:
+            mutable.detach_device(controller.name, attachment.port, attachment.device)
+            mutable.attach_device(controller.name, attachment.port, attachment.device, medium.device_type, medium)
+            if auto_discard:
+                mutable.non_rotational_device(controller.name, attachment.port, attachment.device, True)
+                mutable.set_auto_discard_for_device(controller.name, attachment.port, attachment.device, True)
+            mutable.save_settings()
+
+
+def vagrant_halt(vagrant):
+    with task('shut down virtual machine'):
+        vagrant.halt()
+
+
+@contextmanager
+def vagrant_up(vagrant):
+    with task('boot virtual machine (may take some time)'):
+        vagrant.up()
+    try:
+        yield
+    finally:
+        vagrant_halt(vagrant)
+
+
+def vagrant_ssh(argv):
+    check_call(['vagrant', 'ssh', '--command=' + argv])
+
+
+########################################################################
+#
+#  main compaction actions
+#
+
+def main():
+    parser = ArgumentParser(description="resize and/or compact Vagrant-managed VirtualBox machines' disks")
+    parser.add_argument('-r', '--resize', nargs=1, type=lambda arg: parse_size(arg, binary=True), metavar='BYTES', help='resize the disk\'s logical size in the guest; recognizes suffixes such as "G", "MB", "KiB", etc.')
+    parser.add_argument('-c', '--compact', action='store_const', const=True, help="compact the disk image's physical size on the host")
+    args = parser.parse_args()
+    if not (args.compact or args.resize):
+        print('nothing to do: neither "--compact" nor "--resize" requested')
+        parser.print_usage()
+        return
+
+    environ.setdefault('VBOX_PROGRAM_PATH', '/usr/bin')
+    environ.setdefault('VBOX_SDK_PATH', '/usr/lib/virtualbox/sdk')
+    sys.path.append('/usr/lib/virtualbox')
+
+    vagrant = Vagrant()
+    status, = vagrant.status()
+    if status.provider != 'virtualbox':
+        print('cannot modify {} disks; only virtualbox is supported'.format(status.provider))
+        exit(1)
+
+    # collect handles for various things we'll be manipulating
+    vmId = open('.vagrant/machines/default/virtualbox/id').read()
+    vbox = virtualbox.VirtualBox()
+    machine = vbox.find_machine(vmId)
+    original_vmdk = machine.medium_attachments[0].medium
+
+    # temporary copy of VM's disk, converted to VDI
+    with temporary_storage(vbox) as temporary_vdi:
+
+        # ensure VM is off before changing its storage configuration
+        if status.state == 'running':
+            vagrant_halt(vagrant)
+
+        # clone VM's disk and convert to VDI
+        with task('convert virtual disk image'):
+            wait_for(original_vmdk.clone_to_base(temporary_vdi, [virtualbox.library.MediumVariant.standard]))
+
+        # use VDI-formatted clone instead of VMDK original
+        switch_disk(machine, temporary_vdi, True)
+
+        # resize VDI disk image
+        if args.resize:
+            with task('resize virtual disk image'):
+                wait_for(temporary_vdi.resize(args.resize[0]))
+
+        # boot the VM for some guest commands
+        with vagrant_up(vagrant):
+
+            # resize disk partition
+            if args.resize:
+                with task('resize disk partition'):
+                    vagrant_ssh('sudo sh -c "sfdisk --no-reread -N 1 /dev/sda <<< \'- +\' && partprobe --summary && resize2fs /dev/sda1"')
+
+            # trim disk
+            if args.compact:
+                print('trim unused blocks:', end=' ')
+                sys.stdout.flush()
+                vagrant_ssh('sudo fstrim --verbose /')
+
+        # compact the trimmed VDI image
+        if args.compact:
+            with task('compact virtual disk image'):
+                wait_for(temporary_vdi.compact())
+
+        # clone modified VDI and convert back to VMDK
+        with task('convert virtual disk image'):
+            here = getcwd() + '/'
+            modified_vmdk = vbox.create_medium('VMDK', here, virtualbox.library.AccessMode.read_write, virtualbox.library.DeviceType.hard_disk)
+            wait_for(temporary_vdi.clone_to_base(modified_vmdk, [virtualbox.library.MediumVariant.standard]))
+
+        # use modified VMDK
+        switch_disk(machine, modified_vmdk, False)
+
+
+if __name__ == '__main__':
+    main()
+
+
+# Local variables:
+# flycheck-flake8-maximum-line-length: 300
+# End:

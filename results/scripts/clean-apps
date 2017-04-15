@@ -1,0 +1,33 @@
+#!/bin/bash -e
+
+source config
+
+
+printUsage(){
+  echo "USAGE: clean-apps [-s]" >&2
+}
+
+
+if [ $# -gt 1 ]
+then
+  printUsage
+  exit 1
+fi
+
+verbosity="-v"
+while getopts ":s" opt
+do
+  case $opt in
+    s)
+      verbosity=""
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      printUsage
+      exit 1
+      ;;
+  esac
+done
+
+cd "$SLIVER_DIR"
+rm -Rf "$verbosity" core* grep gzip flex space siemens sanity sed exif ccrypt gcc bc bash

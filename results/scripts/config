@@ -1,0 +1,113 @@
+#!/bin/bash -e
+
+# you need to specify this so the scripts know where to find your sliver install
+SLIVER_DIR='/scratch/ohmann/sliver'
+
+# if you specify an email address, the scripts will notify you via email when
+# they finish
+EMAIL=''
+
+# specify which apps should run
+declare -A apps
+apps[flex]=0
+apps[gcc]=0
+apps[tcas]=0
+apps[grep]=0
+apps[exif]=0
+apps[space]=0
+apps[schedule]=0
+apps[print_tokens]=0
+apps[bc]=0
+apps[replace]=0
+apps[sanity]=0
+apps[sed]=0
+apps[print_tokens2]=0
+apps[schedule2]=0
+apps[gzip]=0
+apps[tot_info]=0
+apps[ccrypt]=0
+apps[bash]=0
+
+# possibly include extra config (depending on environment variable EXTRA_CONFIG)
+# in the EXTRA_CONFIG file, you should actually set the default variables above
+if [ -n "$EXTRA_CONFIG" ]
+then
+  source "$EXTRA_CONFIG"
+fi
+
+
+
+###############################################################################
+# --------------------------------------------------------------------------- #
+# ----------------------------- Only Edit Above ----------------------------- #
+# --------------------------------------------------------------------------- #
+###############################################################################
+
+
+
+###############################################
+# ------------------------------------------- #
+# --------------- Subroutines --------------- #
+# ------------------------------------------- #
+###############################################
+
+# emailNotify(): send notification email if EMAIL is provided
+# @param subject the message subject
+# @param body the message body
+emailNotify(){
+  if [ $# -ne 2 ]
+  then
+    echo "emailNotify parameters: \"subject\" \"body\""
+    exit 1
+  fi
+  
+  if [ -n "$EMAIL" ]
+  then
+    echo "$2" | mail -s "$1" "$EMAIL"
+  fi
+}
+
+# runSiemensApp(): subroutine for common runApp calls for siemens applications
+# @param app the application
+# @param versions the number of versions the app has (1..versions)
+runSiemensApp(){
+  if [ $# -ne 2 ]
+  then
+    echo "runSiemensApp parameters: app #versions"
+    exit 3
+  fi
+  
+  runApp $1 $2 true "" "reference" "" "siemens"
+}
+
+
+
+#################################
+# ----------------------------- #
+# --------- Overrides --------- #
+# ----------------------------- #
+#################################
+
+# runApp(): subroutine to run all versions of one app.
+# NOTE: YOUR SCRIPT SHOULD OVERRIDE THIS METHOD!
+# Parameter order is as follows:
+# @param app the application
+# @param versions the number of versions the app has (1..versions)
+# @param sharedref whether or not the application has a shared reference build
+# @param cases the number of test cases to build for (-z cases) (default="")
+# @param buildname the name the build will end up having
+#                  ($SLIVER/app/builds/version/buildname/...)
+#                  (default="reference")
+# @param faultname if given, the name of the fault to give to starTestSuite
+#                  (--fault=faultname) (default="")
+# @param dirprefix if given, the prefix to the sliver build directory
+#                  ($SLIVER/dirprefix/app/builds/...) (default="")
+# @param iterations the number of times to run all versions (default=1)
+# @param exeprefix any extra prefix added to the executable name; usually extra
+#                  subdirectories (default="")
+# @param tracefailures whether or not the application should be traced to search
+#                      for bad/failing program output (default=true)
+runApp(){
+  echo "runApp not implemented!"
+  exit 1
+}

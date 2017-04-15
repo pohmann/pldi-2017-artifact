@@ -1,0 +1,86 @@
+#!/bin/bash -e
+
+source config
+
+
+if [ $# -ne 0 ]
+then
+  echo "Usage: $0"
+  exit 1
+fi
+
+MY_RESULTS=$(readlink -f -n ../results_trace)
+MY_ANALYZER=$(readlink -f -n ./analyzeAll.py)
+MY_APPS_SCRIPT=$(readlink -f -n ./failure_apps)
+
+
+###############################################
+# ------------------------------------------- #
+# --------------- Subroutines --------------- #
+# ------------------------------------------- #
+###############################################
+
+# runApp(): subroutine to run one fault for one version of one app
+# @param app the application
+# @param version the version to run
+# @param sharedref whether or not the application has a shared reference build
+# @param cases the number of test cases to build for (-z cases) (default="")
+# @param buildname the name the build will end up having
+#                  ($SLIVER/app/builds/version/buildname/...)
+#                  (default="reference")
+# @param faultname if given, the name of the fault to give to starTestSuite
+#                  (--fault=faultname) (default="")
+# @param dirprefix if given, the prefix to the sliver build directory
+#                  ($SLIVER/dirprefix/app/builds/...) (default="")
+# @param iterations the number of times to run all versions (default=1)
+# @param exeprefix any extra prefix added to the executable name; always extra
+#                  subdirectories ($FAULT/$INST/exeprefix/$APP) (default="")
+# @param tracefailures whether or not the application should be traced to search
+#                      for bad/failing program output (default=true)
+runApp(){
+  if [ $# -lt 2 ]
+  then
+    echo "runApp parameters: app #versions sharedreference=false #cases='' buildname='' faultname='' dirprefix='' #iterations=1 exeprefix='' tracefailures=true"
+    exit 2
+  fi
+
+  # handle parameters
+  app=$1
+  version=$2
+  fault=$6
+  if [ -z $5 ]
+  then
+    # normally, the fault name is the build name
+    build="$6"
+  else
+    # but we can specify otherwise
+    build="$5"
+  fi
+
+  # handle environment parameters
+  stackFlag=""
+  if [[ "$STACK_ONLY" =~ ^[0-9]+$ && "$STACK_ONLY" -gt 0 ]]
+  then
+    stackFlag="-stack"
+  fi
+
+  ###
+  # Next, actually run stuff...
+  ###
+
+  echo "Analyzing: $app-$version-$fault"
+  $MY_ANALYZER $MY_RESULTS/$app/v$version/$build $stackFlag
+}
+
+
+
+###############################################
+# ------------------------------------------- #
+# --------------- Base Script --------------- #
+# ------------------------------------------- #
+###############################################
+
+source $MY_APPS_SCRIPT
+
+echo ""
+echo "Analyzing done.  Results to summarize are in results_trace directory"

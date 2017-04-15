@@ -1,0 +1,6 @@
+.sconf_temp
+.scons-cache
+.scons-config
+.sconsign.dblite
+*.csv
+paper-figures

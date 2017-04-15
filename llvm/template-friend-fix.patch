@@ -1,0 +1,13 @@
+diff -ru src-orig/include/llvm/ADT/IntrusiveRefCntPtr.h src/include/llvm/ADT/IntrusiveRefCntPtr.h
+--- src-orig/include/llvm/ADT/IntrusiveRefCntPtr.h	2016-03-08 22:43:36.701010700 +0000
++++ src/include/llvm/ADT/IntrusiveRefCntPtr.h	2016-03-08 22:44:19.004010700 +0000
+@@ -197,6 +197,9 @@
+   private:
+     void retain() { if (Obj) IntrusiveRefCntPtrInfo<T>::retain(Obj); }
+     void release() { if (Obj) IntrusiveRefCntPtrInfo<T>::release(Obj); }
++
++    template <typename X>
++    friend class IntrusiveRefCntPtr;
+   };
+ 
+   template<class T, class U>

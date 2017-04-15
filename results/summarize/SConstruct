@@ -1,0 +1,20 @@
+import os
+env = Environment(
+    ENV = {'PATH' : os.environ['PATH'],
+           'LANG' : 'en_US.UTF-8'},
+)
+
+
+for feedback in 'csi', 'stack':
+    for aspect in 'certain', 'incomplete', 'relative-time':
+        csv = env.Command('$feedback-${aspect}.csv', ('prepare-${aspect}.py', 'applications.csv', '$feedback-data.csv'), './$SOURCES >$TARGET', feedback=feedback, aspect=aspect)
+        Alias('csv', csv)
+
+Depends('csv', ['applications.csv', 'csi-data.csv', 'stack-data.csv'])
+
+paper_figures = env.Command('paper-figures', '', './summarize-results.py >$TARGET')
+Depends(paper_figures, 'csv')
+env.Default(paper_figures)
+
+env.Clean(paper_figures, [f for f in Glob('*.csv') \
+                            if not 'applications.csv' in f.name] + ['paper-figures'])

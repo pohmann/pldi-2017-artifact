@@ -1,0 +1,9 @@
+[submodule "csi-cc"]
+	path = csi-cc
+	url = https://github.com/liblit/csi-cc.git
+[submodule "symbolicautomata"]
+	path = symbolicautomata
+	url = https://github.com/pohmann/symbolicautomata.git
+[submodule "csi-grissom"]
+	path = csi-grissom
+	url = https://github.com/pohmann/csi-grissom.git

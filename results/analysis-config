@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# send a notification email to the provided address when the run completes
+EMAIL=''
+
+# which applications should run?  (0 = don't run;  1 = run)
+apps[print_tokens]=1
+apps[print_tokens2]=1
+apps[replace]=1
+apps[schedule]=1
+apps[schedule2]=1
+apps[tcas]=1
+apps[tot_info]=1
+
+apps[ccrypt]=1
+apps[flex]=1
+apps[gcc]=1
+apps[grep]=1
+apps[gzip]=1
+apps[sed]=1
+apps[space]=1
+
+
+###############################################################################
+# ------------------------ Do not edit below this line ---------------------- #
+# ---------------- Copy lines below into any new config files --------------- #
+###############################################################################
+SLIVER_DIR='../../sliver'
+STACK_ONLY=${STACK_ONLY:-0}
