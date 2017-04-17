@@ -104,10 +104,10 @@ def main():
 
     handlers = OrderedDict((
         ('table-2',   show_table_2),
-        ('table-3',   lambda: show_table_incompletes(   3, 'stack')),
+        ('table-3',   lambda: show_table_incompletes(   4, 'stack')),
         ('figure-11', lambda: show_table_relative_time(11, 'stack')),
         ('figure-12', lambda: show_table_certain(      12, 'stack', 1)),
-        ('table-4',   lambda: show_table_incompletes(   4, 'csi')),
+        ('table-4',   lambda: show_table_incompletes(   5, 'csi')),
         ('figure-13', lambda: show_table_relative_time(13, 'csi')),
         ('figure-14', lambda: show_table_certain(      14, 'csi', 0)),
     ))
