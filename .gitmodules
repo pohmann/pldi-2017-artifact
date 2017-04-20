@@ -1,6 +1,6 @@
 [submodule "csi-cc"]
 	path = csi-cc
-	url = https://github.com/liblit/csi-cc.git
+	url = https://github.com/pohmann/csi-cc.git
 [submodule "symbolicautomata"]
 	path = symbolicautomata
 	url = https://github.com/pohmann/symbolicautomata.git
